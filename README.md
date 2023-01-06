@@ -22,3 +22,18 @@ A quick Google search says this is propably an error related to [Adobe Muse](htt
 ```
 
 The important part there is the `data-main="scripts/museconfig.js?crc=4179431180"` attribute. Searching this file on [GitHub filtering by JavaScript](https://github.com/search?l=JavaScript&q=museconfig.js&type=Code) can give us a hint of what its content was like.
+
+## The restoration process
+
+### Download website from Wayback Machine
+
+I used [wayback_machine_downloader](https://github.com/hartator/wayback-machine-downloader) to download all latest files from the Archive:
+
+```bash
+wayback_machine_downloader http://classicipods.com -d website -c 20
+```
+
+### Cleaning up filenames
+
+This downloaded around 130 files but some of them (mainly assets) had some messed up trailing characters because they were called with a `crc` query param on the pages. These might be refering to a [Cyclic Redundancy Check](https://csrc.nist.gov/glossary/term/cyclic_redundancy_check), being used as a versioning mechanism and/or for cache-busting. Because I don't care about the versions for now, I remove these strings from the filenames running the one-liner `for file in *; do mv "$file" "${file/\%3fcrc*/}"; done` command inside each asset folder.
+
