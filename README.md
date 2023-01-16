@@ -37,3 +37,69 @@ wayback_machine_downloader http://classicipods.com -d website -c 20
 
 This downloaded around 130 files but some of them (mainly assets) had some messed up trailing characters because they were called with a `crc` query param on the pages. These might be refering to a [Cyclic Redundancy Check](https://csrc.nist.gov/glossary/term/cyclic_redundancy_check), being used as a versioning mechanism and/or for cache-busting. Because I don't care about the versions for now, I remove these strings from the filenames running the one-liner `for file in *; do mv "$file" "${file/\%3fcrc*/}"; done` command inside each asset folder.
 
+### Scavenging the web for missing files
+
+Although Adobe Muse is [descontinued](https://helpx.adobe.com/muse/kb/adobe-muse-end-of-service.html), we can find some websites online using it or at least hosting its generated files.
+Analysing the internals of the generated Muse files, we can infer the `Some files on the server may be missing or incorrect.` error message is thrown because a verification on the page failed. This can be seen near the top of `index.html` (formatted bellow for readability):
+
+```html
+<script type="text/javascript">
+   // Update the 'nojs'/'js' class on the html node
+document.documentElement.className = document.documentElement.className.replace(/\bnojs\b/g, 'js');
+
+// Check that all required assets are uploaded and up-to-date
+if(typeof Muse == "undefined") window.Muse = {};
+
+window.Muse.assets = {
+  "required":[
+    "museutils.js",
+    "museconfig.js",
+    "jquery.musemenu.js",
+    "webpro.js",
+    "musewpslideshow.js",
+    "jquery.museoverlay.js",
+    "touchswipe.js",
+    "jquery.watch.js",
+    "jquery.musepolyfill.bgsize.js",
+    "require.js",
+    "index.css"
+  ],
+  "outOfDate":[]
+};
+</script>
+```
+
+From this asset list, our downloaded files contained only `./scripts/require.js`. Checking this same list on all the other HTML files show the list above share all the required scripts apart from each page CSS file (some of which were not archived thus sadly can't be restored).
+Opening the `./scripts/require.js` file we have, we get to know how it is check for the Muse-generated assets (for a specific version, at least):
+
+```javascript
+for (var a = document.getElementsByTagName("meta"), b = 0, c = a.length; b < c; b++) {
+    var d = a[b];
+    if ("generator" == d.getAttribute("name")) {
+        "2017.0.1.363" != d.getAttribute("content") && Muse.assets.outOfDate.push("require.js");
+        break
+    }
+} // beautified snippet
+```
+
+Checking the head from each HTML file confirms its "generator version" to be `<meta name="generator" content="2017.0.1.363"/>`. Using a combination of searching from Google + GitHub we can find some projects that contains files that match our generator version (some examples [#1](https://github.com/intel/de10-nano-webcontent/tree/master/scripts), [#2](https://github.com/christianV5/portafolios/tree/main/scripts), [#3](https://github.com/BioMaRu/coindrop-parallax-site/tree/master/doitright/scripts), [#4](https://github.com/ultop/ultop.github.io/tree/master/scripts), [#5](https://github.com/bolivarescobar/bolivarescobar.github.io/tree/master/scripts), [#6](https://github.com/sydneyleague/sydneyleague.github.io-2016-2-/tree/master/scripts), and [many others](https://github.com/search?l=JavaScript&q=%222017.0.1.363%22&type=Code)).
+Matching these hosted files with our list, I used [https://download-directory.github.io/](https://download-directory.github.io/) to get them.
+Another thing we need to do is explained in the [End of service for Adobe Muse](https://helpx.adobe.com/muse/kb/adobe-muse-end-of-service.html#faq) FAQ:
+
+> _What happens to my existing Adobe Muse-built website? Will the site disappear?_
+> Websites built with Adobe Muse will continue to be live on the internet if the sites are hosted on any third-party hosting platform such as GoDaddy or Bluehost (for example). Sites hosted on Business Catalyst will have to be republished to another hosting platform to remain live after March 26, 2021, when Business Catalyst hosting is no longer available. As of July 31, 2020 sites published using Adobe Muse will  no longer be editable using the Adobe In-Browser editing solution. For more details, see the Business Catalyst announcement page (https://businesscatalyst.com/#announcement).
+
+There is a "http://" CDN link from `businesscatalyst.com` in `./scripts/museconfig.js` (`http://musecdn2.businesscatalyst.com/scripts/4.0/jquery-1.8.3.min`), I simply replaced it with a cdnjs link. I don't really care that much about "http://"-only targeting since we can test it localy or host it for free on GitHub Pages (https by default).
+
+### Running locally
+
+There are many options how to serve the `website` contents locally. You can either copy it to a webserver localhost folder, or simply run `npx serve .` inside the `./website` folder.
+
+### Trimming and finishing
+
+I decided to comment out some scripts from the page contents before putting up a hosted demo. This is mostly because, after getting the website to run, it became clear this was a "storefront" for a man named Sean to provide maintenance/mods services and/or selling parts for iPods. In respect to Captain Sean (as he states in the `./website/home.html` page), I decided to not leave it as is because we don't know the current state of the matter for his projects.
+
+### Conclusion
+
+Just to be clear that there is no ill intention with this project. This was done only to document and shed light to a part of the web that may be gone unnoticied and, probably, has already been lost. Adobe Muse websites, although most of them unknown, are still part of internet history and the lack of archiavability on its part (before and after its sunset) is whorysome at least. As shown in this very project some files are missing (css file for `./website/ipod-mini.html` for example).
+Since it relies heavily on loading files through javascript, crawlers are not able to easily navigate through all needed files. One easy way to solve this issue is to gather all Muse generated files from its [manifest file](https://github.com/intel/de10-nano-webcontent/blob/master/muse_manifest.xml). This file contains all folders, files, and versions used to generated the website content.
